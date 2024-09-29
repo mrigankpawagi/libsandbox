@@ -3,7 +3,8 @@
 ## Requirements
 
 1. [LLVM Clang](https://clang.llvm.org)
-3. [Python 3](https://www.python.org)
+2. [Python 3](https://www.python.org)
+3. [GraphViz](https://graphviz.org)
 
 ## Generating a library call policy
 From the root of the repository, run the following command.
