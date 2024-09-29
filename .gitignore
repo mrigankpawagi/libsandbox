@@ -1,3 +1,7 @@
 **/build/
 *.out
 *.bc
+*.dot
+*.png
+*.policy
+mbedtls/
