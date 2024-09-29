@@ -2,6 +2,10 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Instruction.h"
 
 using namespace llvm;
 
@@ -17,13 +21,19 @@ namespace
         std::unordered_map<int, std::unordered_map<std::string, std::vector<int>>> transitionTable;
 
         // map from (address of basic block) to (start state, final state)
-        std::unordered_map<BasicBlock*, std::pair<int, int>> blockStates;
+        std::unordered_map<BasicBlock *, std::pair<int, int>> blockStates;
 
         // map from (function name) to (start state, final state)
         std::unordered_map<std::string, std::pair<int, int>> functionStates;
 
         // initial state
         int initialState;
+
+        // counter for library functions (to assign unique IDs)
+        int libraryFunctionCounter = 0;
+
+        // map from library function name to its ID
+        std::unordered_map<std::string, int> libraryFunctionIDs = std::unordered_map<std::string, int>();
 
         // Create an NFA for each basic block
         void buildBasicBlockNFA(BasicBlock &B)
@@ -47,10 +57,54 @@ namespace
                         transitionTable[currentState][functionName] = std::vector<int>();
                     }
                     transitionTable[currentState][functionName].push_back(nextState);
+
+                    // if the function is a libary-call, add a system call in the IR before it
+                    if (calledFunc->isDeclaration())
+                    {
+                        // get the ID of the library function
+                        int libraryFunctionID;
+                        if (libraryFunctionIDs.find(functionName) == libraryFunctionIDs.end())
+                        {
+                            libraryFunctionID = libraryFunctionCounter++;
+                            libraryFunctionIDs[functionName] = libraryFunctionID;
+                        }
+                        else
+                        {
+                            libraryFunctionID = libraryFunctionIDs[functionName];
+                        }
+
+                        // now inject a system call before the library call
+                        // the system call will be number 999
+                        // and the library function ID will be passed as an argument
+                        IRBuilder<> builder(callInst);
+                        insertSyscall999(builder, libraryFunctionID);
+                    }
                 }
             }
             int finalState = stateCounter;
             blockStates[&B] = {startState, finalState};
+        }
+
+        // Insert syscall 999 with a unique library call ID as an argument
+        void insertSyscall999(IRBuilder<> &builder, int libcallID)
+        {
+            LLVMContext &context = builder.getContext();
+
+            // Create the library function ID as a constant (int64)
+            Value *syscallID = ConstantInt::get(Type::getInt64Ty(context), libcallID);
+
+            // Inline assembly for syscall 999: mov 999 -> rax, libcallID -> rdi, and syscall
+            FunctionType *asmFnType = FunctionType::get(Type::getVoidTy(context), {Type::getInt64Ty(context)}, false);
+
+            // Use inline assembly to generate the syscall
+            InlineAsm *asmSyscall = InlineAsm::get(
+                asmFnType,
+                "mov $$999, %rax; mov $0, %rdi; syscall", // The inline assembly code
+                "r",                                      // The constraint for the input (libcallID goes into %rdi)
+                true);                                    // Side effects
+
+            // Insert the syscall call into the IR
+            builder.CreateCall(asmSyscall, syscallID);
         }
 
         // Create an NFA for each function
@@ -58,7 +112,7 @@ namespace
         {
             // Iterate over basic blocks in the function
             for (auto &B : F)
-            { 
+            {
                 buildBasicBlockNFA(B);
             }
 
@@ -66,7 +120,7 @@ namespace
             for (auto &B : F)
             {
                 // Get the final state of this basic block
-                    int finalState = blockStates[&B].second;
+                int finalState = blockStates[&B].second;
 
                 // Get the successors of this basic block
                 for (auto *succ : successors(&B))
@@ -90,7 +144,7 @@ namespace
                         transitionTable[finalState][""] = std::vector<int>();
                     }
                     transitionTable[finalState][""].push_back(startState);
-                }                
+                }
             }
         }
 

@@ -15,16 +15,22 @@ try:
 except FileNotFoundError:
     print('LibraryCallPass not built. Building LibraryCallPass...')
     subprocess.run(['mkdir', '-p', 'build'])
-    subprocess.run(['cmake', '..'], cwd='build')
-    subprocess.run(['make'], cwd='build')
+    subprocess.run(['cmake', '..'], cwd='build', stdout=subprocess.PIPE)
+    subprocess.run(['make'], cwd='build', stdout=subprocess.PIPE)
 
 output = subprocess.run(
-    ['clang', '-fpass-plugin=build/LibraryCallPass/LibraryCallPass.so', '-O0', path], 
+    [
+        'clang', '-fpass-plugin=build/LibraryCallPass/LibraryCallPass.so', '-O0', path,
+        '-emit-llvm', '-S'
+    ],
     capture_output=True
 )
 dot_contents, policy_contents = output.stdout.decode('utf-8').split('-------------------')
 dot_contents = dot_contents.strip()
 policy_contents = policy_contents.strip()
+
+# compile the ll file to executable
+subprocess.run(['clang', path_without_extension + '.ll'])
 
 with open(path_without_extension + '.dot', 'w') as f:
     f.write(dot_contents)
