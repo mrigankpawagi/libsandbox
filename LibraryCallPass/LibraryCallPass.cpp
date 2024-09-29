@@ -6,6 +6,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/Support/FileSystem.h"
 
 using namespace llvm;
 
@@ -35,6 +36,26 @@ namespace
         // map from library function name to its ID
         std::unordered_map<std::string, int> libraryFunctionIDs = std::unordered_map<std::string, int>();
 
+        // check if a function is from "libc"
+        bool isFromLibC(Function &F)
+        {
+            std::string functionName = F.getName().str();
+            if (!F.isDeclaration())
+            {
+                return false;
+            }
+            // check if the function comes from another library
+            std::vector<std::string> knownLibraries = {"mbedtls"}; // check if these prefixes are in the function name
+            for (std::string lib : knownLibraries)
+            {
+                if (functionName.find(lib) == 0)
+                {
+                    return false;
+                }
+            }
+            return true;                
+        }
+
         // Create an NFA for each basic block
         void buildBasicBlockNFA(BasicBlock &B)
         {
@@ -59,7 +80,7 @@ namespace
                     transitionTable[currentState][functionName].push_back(nextState);
 
                     // if the function is a libary-call, add a system call in the IR before it
-                    if (calledFunc->isDeclaration())
+                    if (isFromLibC(*calledFunc))
                     {
                         // get the ID of the library function
                         int libraryFunctionID;
@@ -157,7 +178,7 @@ namespace
             // Build NFA for each function
             for (Function &F : M)
             {
-                if (!F.isDeclaration())
+                if (!isFromLibC(F))
                 {
                     // store the name of the user-defined function
                     userFunctions.push_back(F.getName().str());
@@ -224,34 +245,23 @@ namespace
                 transitionTable[p.first].erase(p.second);
             }
 
-            // print the NFA in Graphviz format
-            printToGraphviz(outs(), &M);
+            std::string filename = M.getSourceFileName();
+            filename = filename.substr(0, filename.find_last_of('.'));
+            std::error_code EC;
+            
+            // print the graphviz representation to a .dot file with same name as the source file
+            raw_fd_ostream file(filename + ".dot", EC, sys::fs::OF_Text);
+            printToGraphviz(file);
 
-            outs() << "\n\n-------------------\n\n";
-
-            // print the transition table
-            outs() << initialState << "\n";
-            for (const auto &state : transitionTable)
-            {
-                for (const auto &transition : state.second)
-                {
-                    for (int nextState : transition.second)
-                    {
-                        std::string transitionLabel = transition.first;
-                        if (transitionLabel == "")
-                        {
-                            transitionLabel = "0";
-                        }
-                        outs() << state.first << " " << transitionLabel << " " << nextState << "\n";
-                    }
-                }
-            }
+            // similar to the above, but for the policy
+            raw_fd_ostream file2(filename + ".policy", EC, sys::fs::OF_Text);
+            printPolicy(file2);
 
             return PreservedAnalyses::all();
         };
 
         // create a Graphviz representation of the NFA
-        void printToGraphviz(raw_ostream &OS, const Module *M) const
+        void printToGraphviz(raw_ostream &OS) const
         {
             OS << "digraph NFA {\n";
             OS << "  rankdir=LR;\n";
@@ -279,6 +289,26 @@ namespace
             OS << "  empty [label=\"\", shape=none];\n";
             OS << "  empty -> " << initialState << ";\n";
             OS << "}\n";
+        }
+
+        void printPolicy(raw_ostream &OS)
+        {
+            OS << initialState << "\n";
+            for (const auto &state : transitionTable)
+            {
+                for (const auto &transition : state.second)
+                {
+                    for (int nextState : transition.second)
+                    {
+                        std::string transitionLabel = transition.first;
+                        if (transitionLabel == "")
+                        {
+                            transitionLabel = "0";
+                        }
+                        OS << state.first << " " << transitionLabel << " " << nextState << "\n";
+                    }
+                }
+            }
         }
     };
 }
