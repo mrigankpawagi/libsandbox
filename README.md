@@ -3,7 +3,6 @@
 ## Requirements
 
 1. [LLVM Clang](https://clang.llvm.org)
-2. [LLVM `opt`](https://llvm.org/docs/CommandGuide/opt.html)
 3. [Python 3](https://www.python.org)
 
 ## Generating a library call policy
