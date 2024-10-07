@@ -39,8 +39,10 @@ make
 You can run `make test` to check if the library is built correctly.
 
 ### Generating Policies
-We will generate policies for the example programs in the `programs` directory of the `mbedtls` repository. The outputs will be generated in the same directory as the input C source file.
+We will generate policies for the example programs in the `programs` directory of the `mbedtls` repository. The outputs will be generated in the same directory as the input C source file. Execute the following commands from the `mbedtls` directory.
 
 ```bash
-python test_with_mbedtls.py
+python ../test_with_mbedtls.py
+make clean
+make
 ```
