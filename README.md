@@ -5,6 +5,7 @@
 1. [LLVM Clang](https://clang.llvm.org)
 2. [Python 3](https://www.python.org)
 3. [GraphViz](https://graphviz.org)
+4. [Pydot](https://github.com/pydot/pydot)
 
 ## Generating a library call policy
 From the root of the repository, run the following command.
