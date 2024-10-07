@@ -45,7 +45,11 @@ namespace
                 return false;
             }
             // check if the function comes from another library
-            std::vector<std::string> knownLibraries = {"mbedtls"}; // check if these prefixes are in the function name
+            std::vector<std::string> knownLibraries = {
+                "mbedtls",
+                "psa",
+            }; // check if these prefixes are in the function name
+            // TODO: Find a better way to check for library functions
             for (std::string lib : knownLibraries)
             {
                 if (functionName.find(lib) == 0)
