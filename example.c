@@ -20,8 +20,11 @@ void baz() {
 
 int main() {
     foo();
-    while(1) {
+    int x;
+    scanf("%d", &x);
+    while(x) {
         malloc(100);
     }
+    printf("Goodbye, World!\n");
     return 0;
 }
