@@ -9,8 +9,12 @@
 #include "llvm/Support/FileSystem.h"
 #include <unordered_set>
 #include <queue>
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
+
+// accept a command line argument to specify whether the module is being run on a library (the default is false)
+static cl::opt<bool> printEachFunction("printEachFunction", cl::desc("Specify whether an NFA for each function should be printed."), cl::value_desc("printEachFunction"), cl::init(false));
 
 namespace
 {
@@ -21,7 +25,7 @@ namespace
         int stateCounter = 0;
 
         // map from (state) to (map from transition to next state)
-        std::unordered_map<int, std::unordered_map<std::string, std::vector<int>>> transitionTable;
+        std::unordered_map<int, std::unordered_map<std::string, std::unordered_set<int>>> transitionTable;
 
         // map from (address of basic block) to (start state, final state)
         std::unordered_map<BasicBlock *, std::pair<int, int>> blockStates;
@@ -67,13 +71,13 @@ namespace
                     int nextState = ++stateCounter;
                     if (transitionTable.find(currentState) == transitionTable.end())
                     {
-                        transitionTable[currentState] = std::unordered_map<std::string, std::vector<int>>();
+                        transitionTable[currentState] = std::unordered_map<std::string, std::unordered_set<int>>();
                     }
                     if (transitionTable[currentState].find(functionName) == transitionTable[currentState].end())
                     {
-                        transitionTable[currentState][functionName] = std::vector<int>();
+                        transitionTable[currentState][functionName] = std::unordered_set<int>();
                     }
-                    transitionTable[currentState][functionName].push_back(nextState);
+                    transitionTable[currentState][functionName].insert(nextState);
 
                     // if the function is a libary-call, add a system call in the IR before it
                     if (isFromLibC(*calledFunc))
@@ -154,13 +158,13 @@ namespace
                     // Add an epsilon transition
                     if (transitionTable.find(finalState) == transitionTable.end())
                     {
-                        transitionTable[finalState] = std::unordered_map<std::string, std::vector<int>>();
+                        transitionTable[finalState] = std::unordered_map<std::string, std::unordered_set<int>>();
                     }
                     if (transitionTable[finalState].find("") == transitionTable[finalState].end())
                     {
-                        transitionTable[finalState][""] = std::vector<int>();
+                        transitionTable[finalState][""] = std::unordered_set<int>();
                     }
-                    transitionTable[finalState][""].push_back(startState);
+                    transitionTable[finalState][""].insert(startState);
                 }
             }
         }
@@ -168,6 +172,11 @@ namespace
         // Run on the entire module
         PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM)
         {
+            // get the name of the source file
+            std::string filename = M.getSourceFileName();
+            filename = filename.substr(0, filename.find_last_of('.'));
+            std::error_code EC;
+
             // list of user-defined functions
             std::vector<std::string> userFunctions;
 
@@ -182,6 +191,13 @@ namespace
                     int startState = stateCounter;
                     buildFunctionNFA(F);
                     int finalState = stateCounter;
+
+                    // print the NFA for each function if the flag is set
+                    if (printEachFunction)
+                    {
+                        raw_fd_ostream file(filename + "_" + F.getName().str() + ".nfa", EC, sys::fs::OF_Text);
+                        printPolicyForFunction(file, startState, finalState);
+                    }
 
                     // if the function is 'main', mark its start state as the initial state
                     if (F.getName().str() == "main")
@@ -221,13 +237,13 @@ namespace
                         // add an epsilon transition from the function's final state to the next states
                         if (transitionTable.find(finalState) == transitionTable.end())
                         {
-                            transitionTable[finalState] = std::unordered_map<std::string, std::vector<int>>();
+                            transitionTable[finalState] = std::unordered_map<std::string, std::unordered_set<int>>();
                         }
                         if (transitionTable[finalState].find("") == transitionTable[finalState].end())
                         {
-                            transitionTable[finalState][""] = std::vector<int>();
+                            transitionTable[finalState][""] = std::unordered_set<int>();
                         }
-                        transitionTable[finalState][""].insert(transitionTable[finalState][""].end(), transition.second.begin(), transition.second.end());
+                        transitionTable[finalState][""].insert(transition.second.begin(), transition.second.end());
 
                         // remove the previous transition from the transition table
                         toDelete.push_back({state.first, transition.first});
@@ -241,54 +257,12 @@ namespace
                 transitionTable[p.first].erase(p.second);
             }
 
-            reduceNFA();
-
-            // get the name of the source file
-            std::string filename = M.getSourceFileName();
-            filename = filename.substr(0, filename.find_last_of('.'));
-            std::error_code EC;
-
-            // print the graphviz representation to a .dot file with same name as the source file
-            raw_fd_ostream file(filename + ".dot", EC, sys::fs::OF_Text);
-            printToGraphviz(file);
-
-            // similar to the above, but for the policy
+            // print the policy and save it to the same directory
             raw_fd_ostream file2(filename + ".policy", EC, sys::fs::OF_Text);
             printPolicy(file2);
 
             return PreservedAnalyses::all();
         };
-
-        // create a Graphviz representation of the NFA
-        void printToGraphviz(raw_ostream &OS) const
-        {
-            OS << "digraph NFA {\n";
-            OS << "  rankdir=LR;\n";
-            // splines=curved and overlap=false to make the graph more readable
-            OS << "  splines=true;\n";
-            OS << "  overlap=false;\n";
-            OS << "  node [shape = circle];\n";
-            OS << "  node [label=\"\"];\n";
-            for (const auto &state : transitionTable)
-            {
-                for (const auto &transition : state.second)
-                {
-                    for (int nextState : transition.second)
-                    {
-                        std::string transitionLabel = transition.first;
-                        if (transitionLabel == "")
-                        {
-                            transitionLabel = "&epsilon;";
-                        }
-                        OS << "  " << state.first << " -> " << nextState << " [label=\"" << transitionLabel << "\"];\n";
-                    }
-                }
-            }
-            // make an arrow go into the initial state
-            OS << "  empty [label=\"\", shape=none];\n";
-            OS << "  empty -> " << initialState << ";\n";
-            OS << "}\n";
-        }
 
         void printPolicy(raw_ostream &OS)
         {
@@ -310,107 +284,27 @@ namespace
             }
         }
 
-        // "reduce" the NFA by attempting to removing epsilon transitions and unreachable states
-        void reduceNFA()
+        void printPolicyForFunction(raw_ostream &OS, int startState, int finalState)
         {
-            // keep iterating until no epsilon transitions are left
-            while (1)
+            OS << startState << "\n";
+            for (const auto &state : transitionTable)
             {
-                // check if something was deleted in this iteration
-                bool somethingDeleted = false;
-
-                // iterate over every state
-                for (auto &state : transitionTable)
-                {
-                    // list of epsilon transitions to be deleted at the end of the iteration
-                    std::vector<int> toDelete;
-
-                    // iterate over all states that can be reached by epsilon transitions
-                    for (int nextState : state.second[""])
-                    {
-                        // iterate over all transitions from the next state
-                        for (auto &transition : transitionTable[nextState])
-                        {
-                            // add the transition to the current state
-                            if (state.second.find(transition.first) == state.second.end())
-                            {
-                                state.second[transition.first] = std::vector<int>();
-                            }
-                            state.second[transition.first].insert(state.second[transition.first].end(), transition.second.begin(), transition.second.end());
-
-                            // delete this epsilon transition
-                            toDelete.push_back(nextState);
-                            somethingDeleted = true;
-                        }
-                    }
-
-                    // remove the epsilon transitions
-                    for (int nextState : toDelete)
-                    {
-                        state.second[""].erase(std::remove(state.second[""].begin(), state.second[""].end(), nextState), state.second[""].end());
-                    }
-
-                    // delete the epsilon transition if it is empty
-                    if (state.second[""].size() == 0)
-                    {
-                        state.second.erase("");
-                    }
-                }
-
-                // if nothing was deleted, break -- our algorithm is not perfect :'(
-                if (!somethingDeleted)
-                {
-                    break;
-                }
-
-                // check if there are any epsilon transitions left and break if there are none
-                bool epsilonTransitionsLeft = false;
-                for (auto &state : transitionTable)
-                {
-                    if (state.second.find("") != state.second.end())
-                    {
-                        epsilonTransitionsLeft = true;
-                        break;
-                    }
-                }
-                if (!epsilonTransitionsLeft)
-                {
-                    break;
-                }
-            }
-
-            // now remove any unreachable states
-            std::unordered_set<int> reachableStates;
-            std::queue<int> q;
-            q.push(initialState);
-            reachableStates.insert(initialState);
-            while (!q.empty())
-            {
-                int currentState = q.front();
-                q.pop();
-                for (auto &transition : transitionTable[currentState])
+                for (const auto &transition : state.second)
                 {
                     for (int nextState : transition.second)
                     {
-                        if (reachableStates.find(nextState) == reachableStates.end())
+                        // check if state and nextState are within the function's NFA
+                        if (state.first >= startState && state.first <= finalState && nextState >= startState && nextState <= finalState)
                         {
-                            reachableStates.insert(nextState);
-                            q.push(nextState);
+                            std::string transitionLabel = transition.first;
+                            if (transitionLabel == "")
+                            {
+                                transitionLabel = "0";
+                            }
+                            OS << state.first << " " << transitionLabel << " " << nextState << "\n";
                         }
                     }
                 }
-            }
-            std::vector<int> unreachableStates;
-            for (auto &state : transitionTable)
-            {
-                if (reachableStates.find(state.first) == reachableStates.end())
-                {
-                    unreachableStates.push_back(state.first);
-                }
-            }
-            for (int state : unreachableStates)
-            {
-                transitionTable.erase(state);
             }
         }
     };

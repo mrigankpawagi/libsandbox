@@ -1,6 +1,8 @@
 import argparse
 import subprocess
 import os
+from utils.reduce import removeEpsilonTransitions, removeUnreachableStates
+from utils.render import createDot, render
 
 # get the absolute path of the script
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -31,7 +33,33 @@ output = subprocess.run(
 # compile the ll file to executable
 subprocess.run(['clang', path_without_extension + '.ll', '-o', path_without_extension])
 
-# convert the dot file to png
-subprocess.run([
-    'dot', '-Tpng', path_without_extension + '.dot', '-o', path_without_extension + '.png'
-])
+# read the generated ".policy" file and create an NFA
+with open(path_without_extension + '.policy', 'r') as f:
+    policy = f.readlines()
+
+startState = int(policy[0].strip())
+transitions = {}
+
+for i in range(1, len(policy)):
+    state, symbol, nextState = policy[i].split()
+    state = int(state)
+    nextState = int(nextState)
+    if symbol == "0":
+        symbol = ""
+    if state not in transitions:
+        transitions[state] = {}
+    if symbol not in transitions[state]:
+        transitions[state][symbol] = set()
+    transitions[state][symbol].add(nextState)
+
+# remove epsilon transitions
+transitions = removeEpsilonTransitions(transitions)
+
+# remove unreachable states
+transitions = removeUnreachableStates(transitions, startState)
+
+# create a dot file from the NFA transitions and also render it
+with open(path_without_extension + '.dot', 'w') as f:
+    f.write(createDot(transitions, startState))
+
+render(path_without_extension + '.dot', path_without_extension + '.png')
