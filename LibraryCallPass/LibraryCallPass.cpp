@@ -7,6 +7,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/FileSystem.h"
+#include <unordered_set>
+#include <queue>
 
 using namespace llvm;
 
@@ -39,25 +41,11 @@ namespace
         // check if a function is from "libc"
         bool isFromLibC(Function &F)
         {
-            std::string functionName = F.getName().str();
             if (!F.isDeclaration())
             {
                 return false;
             }
-            // check if the function comes from another library
-            std::vector<std::string> knownLibraries = {
-                "mbedtls",
-                "psa",
-            }; // check if these prefixes are in the function name
-            // TODO: Find a better way to check for library functions
-            for (std::string lib : knownLibraries)
-            {
-                if (functionName.find(lib) == 0)
-                {
-                    return false;
-                }
-            }
-            return true;                
+            return true;
         }
 
         // Create an NFA for each basic block
@@ -70,6 +58,10 @@ namespace
                 if (CallInst *callInst = dyn_cast<CallInst>(&I))
                 {
                     Function *calledFunc = callInst->getCalledFunction();
+                    if (!calledFunc)
+                    {
+                        continue;
+                    }
                     std::string functionName = calledFunc->getName().str();
                     int currentState = stateCounter;
                     int nextState = ++stateCounter;
@@ -249,10 +241,13 @@ namespace
                 transitionTable[p.first].erase(p.second);
             }
 
+            reduceNFA();
+
+            // get the name of the source file
             std::string filename = M.getSourceFileName();
             filename = filename.substr(0, filename.find_last_of('.'));
             std::error_code EC;
-            
+
             // print the graphviz representation to a .dot file with same name as the source file
             raw_fd_ostream file(filename + ".dot", EC, sys::fs::OF_Text);
             printToGraphviz(file);
@@ -312,6 +307,110 @@ namespace
                         OS << state.first << " " << transitionLabel << " " << nextState << "\n";
                     }
                 }
+            }
+        }
+
+        // "reduce" the NFA by attempting to removing epsilon transitions and unreachable states
+        void reduceNFA()
+        {
+            // keep iterating until no epsilon transitions are left
+            while (1)
+            {
+                // check if something was deleted in this iteration
+                bool somethingDeleted = false;
+
+                // iterate over every state
+                for (auto &state : transitionTable)
+                {
+                    // list of epsilon transitions to be deleted at the end of the iteration
+                    std::vector<int> toDelete;
+
+                    // iterate over all states that can be reached by epsilon transitions
+                    for (int nextState : state.second[""])
+                    {
+                        // iterate over all transitions from the next state
+                        for (auto &transition : transitionTable[nextState])
+                        {
+                            // add the transition to the current state
+                            if (state.second.find(transition.first) == state.second.end())
+                            {
+                                state.second[transition.first] = std::vector<int>();
+                            }
+                            state.second[transition.first].insert(state.second[transition.first].end(), transition.second.begin(), transition.second.end());
+
+                            // delete this epsilon transition
+                            toDelete.push_back(nextState);
+                            somethingDeleted = true;
+                        }
+                    }
+
+                    // remove the epsilon transitions
+                    for (int nextState : toDelete)
+                    {
+                        state.second[""].erase(std::remove(state.second[""].begin(), state.second[""].end(), nextState), state.second[""].end());
+                    }
+
+                    // delete the epsilon transition if it is empty
+                    if (state.second[""].size() == 0)
+                    {
+                        state.second.erase("");
+                    }
+                }
+
+                // if nothing was deleted, break -- our algorithm is not perfect :'(
+                if (!somethingDeleted)
+                {
+                    break;
+                }
+
+                // check if there are any epsilon transitions left and break if there are none
+                bool epsilonTransitionsLeft = false;
+                for (auto &state : transitionTable)
+                {
+                    if (state.second.find("") != state.second.end())
+                    {
+                        epsilonTransitionsLeft = true;
+                        break;
+                    }
+                }
+                if (!epsilonTransitionsLeft)
+                {
+                    break;
+                }
+            }
+
+            // now remove any unreachable states
+            std::unordered_set<int> reachableStates;
+            std::queue<int> q;
+            q.push(initialState);
+            reachableStates.insert(initialState);
+            while (!q.empty())
+            {
+                int currentState = q.front();
+                q.pop();
+                for (auto &transition : transitionTable[currentState])
+                {
+                    for (int nextState : transition.second)
+                    {
+                        if (reachableStates.find(nextState) == reachableStates.end())
+                        {
+                            reachableStates.insert(nextState);
+                            q.push(nextState);
+                        }
+                    }
+                }
+            }
+            std::vector<int> unreachableStates;
+            for (auto &state : transitionTable)
+            {
+                if (reachableStates.find(state.first) == reachableStates.end())
+                {
+                    unreachableStates.push_back(state.first);
+                }
+            }
+            for (int state : unreachableStates)
+            {
+                transitionTable.erase(state);
             }
         }
     };
