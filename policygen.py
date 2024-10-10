@@ -39,7 +39,7 @@ with open(path_without_extension + '.policy', 'r') as f:
 
 startState = policy[0].strip()
 transitions = {}
-states = set()
+states = {startState}
 
 for i in range(1, len(policy)):
     state, symbol, nextState = policy[i].split()
@@ -50,11 +50,8 @@ for i in range(1, len(policy)):
     if symbol not in transitions[state]:
         transitions[state][symbol] = set()
     transitions[state][symbol].add(nextState)
-
-for state in transitions:
     states.add(state)
-    for symbol in transitions[state]:
-        states.update(transitions[state][symbol])
+    states.add(nextState)
 
 # if a state is missing, add it with no transitions
 for state in states:
