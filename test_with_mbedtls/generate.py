@@ -2,6 +2,7 @@ import os
 import pickle
 from utils.reduce import removeEpsilonTransitions, removeUnreachableStates
 from utils.render import createDot, render
+import argparse
 
 def process_policy(policy_path, function_policies):
     policy_file_without_extension = '.'.join(policy_path.split('.')[:-1])
@@ -50,8 +51,8 @@ def process_policy(policy_path, function_policies):
                         for next_state in transitions[state][transition]:
                             transitions[function_final_state][""].add(next_state)
                         
-                        # remove the transition
-                        transitions[state].pop(transition, None)
+                    # remove the transition
+                    transitions[state].pop(transition, None)
         
     # if a state is missing, add it with no transitions
     for state in states:
@@ -90,9 +91,17 @@ if __name__ == "__main__":
     # read db.pkl
     with open(script_dir + '/db.pkl', 'rb') as f:
         function_policies = pickle.load(f)
+    
+    # optionally accept a single file name as an argument
+    parser = argparse.ArgumentParser()
+    parser.add_argument('file', nargs='?', default=None)
+    args = parser.parse_args()
 
     # walk over the mbedtls/programs directory and find all ".policy" files
     for root, dirs, files in os.walk(script_dir + "/../mbedtls/programs"):
         for file in files:
             if file.endswith(".policy"):
+                if args.file is not None and os.path.basename(file) != f"{args.file}.policy":
+                    continue
+                print("Processing", os.path.basename(file))
                 process_policy(os.path.join(root, file), function_policies)
