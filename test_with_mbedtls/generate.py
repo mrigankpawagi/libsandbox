@@ -94,7 +94,5 @@ if __name__ == "__main__":
     # walk over the mbedtls/programs directory and find all ".policy" files
     for root, dirs, files in os.walk(script_dir + "/../mbedtls/programs"):
         for file in files:
-            if "crypt_and_hash" not in file: continue
             if file.endswith(".policy"):
                 process_policy(os.path.join(root, file), function_policies)
-                quit()
