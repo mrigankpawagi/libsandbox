@@ -1,6 +1,6 @@
 import pydot
 import argparse
-import signal
+import multiprocessing
 
 def render(graph_path,png_path, t=15):
     """
@@ -16,15 +16,12 @@ def render(graph_path,png_path, t=15):
             # remove this node
             graph.del_node(node)
 
-    def handler(signum, frame):
-        raise Exception("timeout")
-
-    signal.signal(signal.SIGALRM, handler)
-    signal.alarm(15)
-    try:
-        graph.write_png(png_path)
-    except Exception as e:
-        pass
+    p = multiprocessing.Process(target=graph.write_png, args=(png_path,))
+    p.start()
+    p.join(t)
+    if p.is_alive():
+        p.terminate()
+        p.join()
 
 def createDot(transitions: dict[str, dict[str, set[str]]], startState: str) -> str:
     """
