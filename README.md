@@ -55,4 +55,6 @@ python test_with_mbedtls/create_db.py
 python test_with_mbedtls/generate.py
 ```
 
-Note that the generation of an intermediate `.ll` file is not done while compiling modules in the `mbedtls` repository with our compiler plugin. This will create `.policy` and `.fpolicy` files for each C source file in `mbedtls`. Note that these `.policy` files are _unflattened_ policies. For C source files in `mbedtls/programs`, `.dot` files corresponding to _flattened_ policies are also generated (`.png` files may be generated for small graphs). These files are placed in the same directory as the input C source file. The flattened `.policy` files are dumped into the `mbedtls_programs_policies/` directory.
+Note that the generation of an intermediate `.ll` file is not done while compiling modules in the `mbedtls` repository with our compiler plugin. This will create `.policy` and `.fpolicy` files for each C source file in `mbedtls`. Note that these `.policy` files are _unflattened_ policies. For C source files in `mbedtls/programs`, `.dot` files corresponding to _flattened_ policies are also generated (`.png` files may be generated for small graphs). These files are placed in the same directory as the input C source file. The flattened `.policy` files (and their corresponding `.dot` files) are dumped into the `mbedtls_programs_policies/` directory.
+
+Optionally, the name of the module to be processed can be passed as an argument to `generate.py`. For example, to generate policies only for the `strerror` module, run `python test_with_mbedtls/generate.py strerror`.
