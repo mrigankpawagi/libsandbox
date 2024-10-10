@@ -1,10 +1,11 @@
-*
-!*/
 **/build/
 *.out
 *.bc
 *.dot
 *.png
 *.policy
+*.fpolicy
 *.ll
+*.pkl
 mbedtls/
+*/**/__pycache__/
