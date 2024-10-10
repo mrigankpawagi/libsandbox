@@ -13,9 +13,6 @@
 
 using namespace llvm;
 
-// accept a command line argument to specify whether the module is being run on a library (the default is false)
-static cl::opt<bool> printEachFunction("printEachFunction", cl::desc("Specify whether an NFA for each function should be printed."), cl::value_desc("printEachFunction"), cl::init(false));
-
 namespace
 {
 
@@ -192,12 +189,9 @@ namespace
                     buildFunctionNFA(F);
                     int finalState = stateCounter;
 
-                    // print the NFA for each function if the flag is set
-                    if (printEachFunction)
-                    {
-                        raw_fd_ostream file(filename + "_" + F.getName().str() + ".nfa", EC, sys::fs::OF_Text);
-                        printPolicyForFunction(file, startState, finalState);
-                    }
+                    // print the NFA for each function
+                    raw_fd_ostream file(filename + "_" + F.getName().str() + ".fpolicy", EC, sys::fs::OF_Text);
+                    printPolicyForFunction(file, startState, finalState);
 
                     // if the function is 'main', mark its start state as the initial state
                     if (F.getName().str() == "main")
@@ -287,6 +281,7 @@ namespace
         void printPolicyForFunction(raw_ostream &OS, int startState, int finalState)
         {
             OS << startState << "\n";
+            OS << finalState << "\n";
             for (const auto &state : transitionTable)
             {
                 for (const auto &transition : state.second)
