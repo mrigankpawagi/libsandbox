@@ -31,20 +31,18 @@ output = subprocess.run(
     capture_output=True
 )
 # compile the ll file to executable
-subprocess.run(['clang', path_without_extension + '.ll', '-o', path_without_extension])
+subprocess.run(['clang', path_without_extension + '.ll', '-o', path_without_extension + ".out"])
 
 # read the generated ".policy" file and create an NFA
 with open(path_without_extension + '.policy', 'r') as f:
     policy = f.readlines()
 
-startState = int(policy[0].strip())
+startState = policy[0].strip()
 transitions = {}
 states = set()
 
 for i in range(1, len(policy)):
     state, symbol, nextState = policy[i].split()
-    state = int(state)
-    nextState = int(nextState)
     if symbol == "0":
         symbol = ""
     if state not in transitions:

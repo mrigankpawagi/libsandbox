@@ -26,7 +26,7 @@ def render(graph_path,png_path, t=15):
     except Exception as e:
         pass
 
-def createDot(transitions: dict[int, dict[str, set[int]]], startState: int) -> str:
+def createDot(transitions: dict[str, dict[str, set[str]]], startState: str) -> str:
     """
     Create a dot file from the NFA transitions.
     """

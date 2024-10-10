@@ -1,13 +1,13 @@
 from copy import deepcopy
 
-def removeEpsilonTransitions(transitions: dict[int, dict[str, set[int]]]) -> dict[int, dict[str, set[int]]]:
+def removeEpsilonTransitions(transitions: dict[str, dict[str, set[str]]]) -> dict[str, dict[str, set[str]]]:
     """
     Create an equivalent NFA without epsilon transitions.
     """
     epsilon = ''  # Assuming epsilon transitions are represented by an empty string
     new_transitions = {state: {symbol: set(states) for symbol, states in trans.items()} for state, trans in transitions.items()}
 
-    def epsilon_closure(state: int) -> set[int]:
+    def epsilon_closure(state: str) -> set[str]:
         closure = {state}
         stack = [state]
         while stack:
@@ -42,7 +42,7 @@ def removeEpsilonTransitions(transitions: dict[int, dict[str, set[int]]]) -> dic
 
     return new_transitions
 
-def removeUnreachableStates(transitions: dict[int, dict[str, set[int]]], startState: int) -> dict[int, dict[str, set[int]]]:
+def removeUnreachableStates(transitions: dict[str, dict[str, set[str]]], startState: str) -> dict[str, dict[str, set[str]]]:
     """
     Remove unreachable states from the NFA and return the equivalent NFA.
     """
