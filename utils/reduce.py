@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-def removeEpsilonTransitions(transitions: dict[str, dict[str, set[str]]]) -> dict[str, dict[str, set[str]]]:
+def removeEpsilonTransitions(transitions: dict[str, dict[str, set[str]]], startState: str) -> dict[str, dict[str, set[str]]]:
     """
     Create an equivalent NFA without epsilon transitions.
     """
@@ -36,9 +36,30 @@ def removeEpsilonTransitions(transitions: dict[str, dict[str, set[str]]]) -> dic
                         new_transitions[state][symbol] = set()
                     new_transitions[state][symbol].update(states)
 
+    # fuse the startState with its epsilon closure
+    for state in closures[startState]:
+        # add transitions from the epsilon closure of the startState to the startState
+        for symbol, states in new_transitions.get(state, {}).items():
+            if symbol != epsilon:
+                if symbol not in new_transitions[startState]:
+                    new_transitions[startState][symbol] = set()
+                new_transitions[startState][symbol].update(states)
+        # add transitions to the epsilon closure of the startState to the startState
+        for s, trans in new_transitions.items():
+            for symbol, states in trans.items():
+                if symbol != epsilon:
+                    if states.intersection(closures[startState]):
+                        new_transitions[s][symbol] = {x for x in new_transitions[s][symbol] if x not in closures[startState]}
+                        new_transitions[s][symbol].add(startState)
+
     # remove epsilon transitions
     for state in transitions:
         new_transitions[state].pop(epsilon, None)
+    
+    # remove all states in the epsilon closure of the startState except the startState
+    for state in closures[startState]:
+        if state != startState:
+            new_transitions.pop(state, None)
 
     return new_transitions
 

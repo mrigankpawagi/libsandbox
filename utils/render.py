@@ -47,6 +47,21 @@ def createDot(transitions: dict[str, dict[str, set[str]]], startState: str) -> s
     
     return dot
 
+def createPolicy(transitions: dict[str, dict[str, set[str]]], startState: str) -> str:
+    """
+    Create a policy file from the NFA transitions.
+    """
+    policy = [startState]
+    
+    for state in transitions:
+        for symbol, nextStates in transitions[state].items():
+            for nextState in nextStates:
+                if symbol == "":
+                    symbol = "0"
+                policy.append(f"{state} {symbol} {nextState}")
+    
+    return "\n".join(policy)
+
 if __name__ == "__main__":
     # take the path as argument
     parser = argparse.ArgumentParser(description='Render the dot file')

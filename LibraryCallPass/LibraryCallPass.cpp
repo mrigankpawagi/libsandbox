@@ -100,6 +100,7 @@ namespace
                 }
             }
             int finalState = stateCounter;
+            stateCounter++;
             blockStates[&B] = {startState, finalState};
         }
 
@@ -133,6 +134,7 @@ namespace
             {
                 buildBasicBlockNFA(B);
             }
+            stateCounter--;
 
             // Iterate over basic blocks in the function again to join them with epsilon transitions
             for (auto &B : F)
@@ -210,8 +212,11 @@ namespace
             // (state, transition) pairs to be deleted
             std::vector<std::pair<int, std::string>> toDelete;
 
+            // make a temporary copy of the transition table
+            std::unordered_map<int, std::unordered_map<std::string, std::unordered_set<int>>> transitionTableCopy = transitionTable;
+
             // loop over every transition and replace transitions with user-functions with epsilon transitions to their own NFAs
-            for (auto &state : transitionTable)
+            for (auto &state : transitionTableCopy)
             {
                 for (auto &transition : state.second)
                 {
@@ -244,6 +249,9 @@ namespace
                     }
                 }
             }
+
+            // delete transitionTableCopy
+            transitionTableCopy.clear();
 
             // delete the transitions that were replaced
             for (auto &p : toDelete)

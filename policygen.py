@@ -2,7 +2,7 @@ import argparse
 import subprocess
 import os
 from utils.reduce import removeEpsilonTransitions, removeUnreachableStates
-from utils.render import createDot, render
+from utils.render import createDot, render, createPolicy
 
 # get the absolute path of the script
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -13,6 +13,11 @@ args = parser.parse_args()
 
 path = args.path
 path_without_extension = '.'.join(path.split('.')[:-1])
+
+# if the file does not exist, exit with an error
+if not os.path.exists(path):
+    print(f"Error: {path} does not exist.")
+    exit(1)
 
 # check if the library call pass is built
 try:
@@ -59,7 +64,7 @@ for state in states:
         transitions[state] = {}
 
 # remove epsilon transitions
-transitions = removeEpsilonTransitions(transitions)
+transitions = removeEpsilonTransitions(transitions, startState)
 
 # remove unreachable states
 transitions = removeUnreachableStates(transitions, startState)
@@ -67,5 +72,9 @@ transitions = removeUnreachableStates(transitions, startState)
 # create a dot file from the NFA transitions and also render it
 with open(path_without_extension + '.dot', 'w') as f:
     f.write(createDot(transitions, startState))
+
+# create a new policy file with the updated transitions
+with open(path_without_extension + '.policy', 'w') as f:
+    f.write(createPolicy(transitions, startState))
 
 render(path_without_extension + '.dot', path_without_extension + '.png')
