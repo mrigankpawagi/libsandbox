@@ -92,6 +92,10 @@ if __name__ == "__main__":
     with open(script_dir + '/db.pkl', 'rb') as f:
         function_policies = pickle.load(f)
     
+    # create an ignore.txt file with the list of keys
+    with open("mbedtls_programs_policies/ignore.txt", 'w') as f:
+        f.write("\n".join(function_policies.keys()))
+
     # optionally accept a single file name as an argument
     parser = argparse.ArgumentParser()
     parser.add_argument('file', nargs='?', default=None)

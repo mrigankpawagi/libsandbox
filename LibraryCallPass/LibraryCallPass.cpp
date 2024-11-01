@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <queue>
 #include "llvm/Support/CommandLine.h"
+#include <fstream>
 
 using namespace llvm;
 
@@ -38,6 +39,40 @@ namespace
 
         // map from library function name to its ID
         std::unordered_map<std::string, int> libraryFunctionIDs = std::unordered_map<std::string, int>();
+
+        // load up the functionIDs from "functions.txt"
+        // if the file does not exist, create it
+        // the file is located in the same directory as this pass
+        void loadFunctionIDs()
+        {
+            std::string filename = std::string(SOURCE_DIR) + "/functions.txt";
+
+            // read the file
+            std::ifstream file2(filename);
+            std::string line;
+            while (std::getline(file2, line))
+            {
+                std::string functionName = line.substr(0, line.find(' '));
+                int functionID = std::stoi(line.substr(line.find(' ') + 1));
+                libraryFunctionIDs[functionName] = functionID;
+                libraryFunctionCounter = std::max(libraryFunctionCounter, functionID + 1);
+                outs() << "Function: " << functionName << " ID: " << functionID << "\n";
+            }
+            file2.close();
+        }
+
+        // update the functionIDs in "functions.txt"
+        void updateFunctionIDs()
+        {
+            std::string filename = std::string(SOURCE_DIR) + "/functions.txt";
+            std::error_code EC;
+            raw_fd_ostream file(filename, EC, sys::fs::OF_Text);
+            for (const auto &p : libraryFunctionIDs)
+            {
+                file << p.first << " " << p.second << "\n";
+            }
+            file.close();
+        }
 
         // check if a function is from "libc"
         bool isFromLibC(Function &F)
@@ -171,6 +206,8 @@ namespace
         // Run on the entire module
         PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM)
         {
+            loadFunctionIDs();
+
             // get the name of the source file
             std::string filename = M.getSourceFileName();
             filename = filename.substr(0, filename.find_last_of('.'));
@@ -262,6 +299,8 @@ namespace
             // print the policy and save it to the same directory
             raw_fd_ostream file2(filename + ".policy", EC, sys::fs::OF_Text);
             printPolicy(file2);
+
+            updateFunctionIDs();
 
             return PreservedAnalyses::all();
         };

@@ -11,3 +11,4 @@ mbedtls/
 */**/__pycache__/
 mbedtls_programs_policies/
 sample*.c
+LibraryCallPass/functions.txt
