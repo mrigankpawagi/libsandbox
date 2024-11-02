@@ -153,7 +153,7 @@ namespace
             // Use inline assembly to generate the syscall
             InlineAsm *asmSyscall = InlineAsm::get(
                 asmFnType,
-                "mov $$999, %rax; mov $0, %rdi; syscall", // The inline assembly code
+                "mov $0, %rdi; mov $$999, %rax; syscall", // The inline assembly code
                 "r",                                      // The constraint for the input (libcallID goes into %rdi)
                 true);                                    // Side effects
 
