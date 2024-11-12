@@ -1,13 +1,16 @@
 # In-kernel Per-process Library Call Sandbox
 
-## Requirements
+## Generating a Library Call Policy
+
+### Requirements
 
 1. [LLVM Clang](https://clang.llvm.org)
 2. [Python 3](https://www.python.org)
 3. [GraphViz](https://graphviz.org)
 4. [Pydot](https://github.com/pydot/pydot)
 
-## Generating a Library Call Policy
+### Policy generation
+
 From the root of the repository, run the following command.
 
 ```bash
@@ -71,6 +74,21 @@ SYSCALL_DEFINE1(dummy, int, libcallno) {
 6. Reboot the virtual machine and log back in as the root user.
 
 7. Install the necessary packages by running the script `monitor/setup.sh`.
+
+### Running the executable
+
+1. Copy the file `LibraryCallPass/functions.txt` to `/root/.libsandbox/` on the virtual machine. This file is generated automatically when policies are created and contains the mapping from function names to their integer codes.
+
+2. Copy the generated executable along with its `.policy` file to the virtual machine. Create a configuration file for the executable in the same directory as the executable. The configuration file contains a single line with the path to the `.policy` file for the executable.
+
+3. Copy `monitor/monitor.c` and `monitor/monitor.py` to the virtual machine. The `monitor.py` file is the entry point for the sandbox and should be run as the root user in the following manner.
+
+```bash
+python path/to/monitor.py [--functions=FUNCTIONS] [--config=CONFIG] executable ...args
+```
+
+You can use the `-h` flag on the `monitor.py` script to see the help message. 
+Here `executable` is the path to the executable to be run. The optional `--functions` flag provides the path to the `functions.txt` file, and is by default set to `/root/.libsandbox/functions.txt`. The optional `--config` flag provides the path to the configuration file for the executable, and is by default set to the executable path with the `.config` extension. Any command-line arguments after the executable are passed to the executable.
 
 ## Testing with Mbed TLS
 
