@@ -1,2 +1,1 @@
-sudo apt-get install bpfcc-tools linux-headers-$(uname -r)
-pip install bcc
+sudo pacman -S bcc bcc-tools python-bcc
