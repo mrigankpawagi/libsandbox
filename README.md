@@ -7,7 +7,7 @@
 3. [GraphViz](https://graphviz.org)
 4. [Pydot](https://github.com/pydot/pydot)
 
-## Generating a library call policy
+## Generating a Library Call Policy
 From the root of the repository, run the following command.
 
 ```bash
@@ -24,6 +24,53 @@ This generates the following files in the same directory as the input C source f
 6. A compiled executable.
 
 An example file, `example.c`, is provided at the root of the repository.
+
+## Running Executables with the Policy
+
+### Setting up the system
+The instructions in this section are partly taken from Stephen Brennan's [tutorial on writing a system call](https://brennan.io/2016/11/14/kernel-dev-ep3/).
+
+1. Download the Arch Linux virtual machine image from [OSBoxes](https://sourceforge.net/projects/osboxes/files/v/vb/4-Ar---c-x/20240601/CLI/64bit.7z/download). This machine has the root user `osboxes` with password `osboxes.org`. Boot the virtual machine and log in as the root user.
+
+2. Install `bc` by running the following commands as root.
+
+```bash
+pacman -Syu
+pacman -S bc
+reboot
+```
+
+3. Download the Linux kernel source code and configure it.
+
+```bash
+curl -O -J https://www.kernel.org/pub/linux/kernel/v6.x/linux-6.11.5.tar.xz
+tar xvf linux-6.11.5.tar.xz
+cd linux-6.11.5
+zcat /proc/config.gz > .config
+```
+
+You will also have to change the kernel by setting `CONFIG_LOCALVERSION="-libsandbox"` in the `.config` file.
+
+4. Add the dummy system call by adding the following line to `arch/x86/entry/syscalls/syscall_64.tbl`.
+
+```tbl
+999	common	dummy			sys_dummy
+```
+
+You also need to create an implementation for the system call by adding the following in `kernel/sys.c`.
+
+```c
+SYSCALL_DEFINE1(dummy, int, libcallno) {
+	printk(KERN_INFO "Dummy syscall invoked with libcallno: %d\n", libcallno);
+    return 0;
+}
+```
+
+5. Compile the kernel and install it by running the script `monitor/deploy.sh` from the `linux-6.11.5` directory.
+
+6. Reboot the virtual machine and log back in as the root user.
+
+7. Install the necessary packages by running the script `monitor/setup.sh`.
 
 ## Testing with Mbed TLS
 
