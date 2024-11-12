@@ -90,6 +90,8 @@ python path/to/monitor.py [--functions=FUNCTIONS] [--config=CONFIG] executable .
 You can use the `-h` flag on the `monitor.py` script to see the help message. 
 Here `executable` is the path to the executable to be run. The optional `--functions` flag provides the path to the `functions.txt` file, and is by default set to `/root/.libsandbox/functions.txt`. The optional `--config` flag provides the path to the configuration file for the executable, and is by default set to the executable path with the `.config` extension. Any command-line arguments after the executable are passed to the executable.
 
+The system call monitor is built using the [BCC](https://github.com/iovisor/bcc) toolkit for eBPF.
+
 ## Testing with Mbed TLS
 
 ### Building Mbed TLS
