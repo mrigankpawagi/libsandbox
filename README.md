@@ -52,7 +52,7 @@ cd linux-6.11.5
 zcat /proc/config.gz > .config
 ```
 
-You will also have to change the kernel by setting `CONFIG_LOCALVERSION="-libsandbox"` in the `.config` file.
+You will also have to change the kernel name by setting `CONFIG_LOCALVERSION="-libsandbox"` in the `.config` file.
 
 4. Add the dummy system call by adding the following line to `arch/x86/entry/syscalls/syscall_64.tbl`.
 
