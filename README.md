@@ -1,4 +1,9 @@
 # LibSandBox: In-kernel Per-process Library Call Sandbox
+
+<p align=center>
+	<img src="https://github.com/user-attachments/assets/1b285f32-f354-4a46-9c67-08bdd0950618">
+</p>
+
 LibSandBox extracts library call policies from C source files and enforces them at runtime to detect and thwart intrusion attempts. LibSandBox provides an easy-to-use CLI tool to extract library call policies and requires minimal changes to the kernel to enforce these policies. The policies are enforced using an eBPF-based system call monitor that intercepts system calls and checks if the calling process is allowed to make the call.
 
 Besides set up and usage, this repository includes a guide to integrate LibSandBox with Mbed TLS, a popular cryptographic library.
